@@ -10,7 +10,7 @@
 python3 --version
 ```
 
-本项目默认只依赖 Python 标准库。
+本项目默认只依赖 Python 标准库，并在仓库内置了 `dotenv.load_dotenv()` 所需的最小实现。
 
 ### 2) 快速开始（离线可跑）
 
@@ -30,13 +30,21 @@ python3 app.py eval --provider mock
 
 - `reports/latest_report.json`
 
-### 3) 接入真实模型（OpenAI 兼容）
+### 3) 接入真实模型（Silicon/OpenAI 兼容）
 
 ```bash
-export OPENAI_API_KEY="你的Key"
-python3 app.py chat --provider openai --model gpt-4.1-mini
-python3 app.py eval --provider openai --model gpt-4.1-mini
+export ANTHROPIC_API_KEY="你的Key"
+export ANTHROPIC_BASE_URL="https://api.openai-proxy.org/v1"
+python3 app.py --provider openai --model Qwen/Qwen3-8B --max-history-turns 6 chat
+python3 app.py --provider openai --model Qwen/Qwen3-8B eval
 ```
+
+> Windows PowerShell 不支持 `export`，请使用：
+>
+> ```powershell
+> $env:ANTHROPIC_API_KEY="你的Key"
+> $env:ANTHROPIC_BASE_URL="https://api.openai-proxy.org/v1"
+> ```
 
 ### 4) 测试集格式（JSONL）
 
@@ -60,3 +68,14 @@ python3 app.py eval --provider openai --model gpt-4.1-mini
 - `pass_rate`: 用例通过率
 - `avg_latency_ms`: 平均延迟
 - `p95_latency_ms`: P95 延迟
+
+
+### 6) 上下文记忆（chat 模式）
+
+- chat 模式默认保留最近 `--max-history-turns` 轮对话（默认 6 轮）。
+- 输入 `/clear` 可手动清空上下文。
+
+
+### 7) .env 配置
+
+程序启动时会自动读取项目根目录下的 `.env` 文件。

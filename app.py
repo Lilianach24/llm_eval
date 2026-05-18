@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""写作助手测试与评测最小可运行项目。
-
-功能：
-1) 交互式写作助手（mock 或 OpenAI 兼容接口）
-2) 批量评测（从 tests/writing_cases.jsonl 读取样本）
-3) 输出 JSON 报告（通过率、格式合规率、平均延迟）
-"""
+"""写作助手测试与评测最小可运行项目。"""
 from __future__ import annotations
 
 import argparse
@@ -13,11 +7,15 @@ import json
 import os
 import statistics
 import time
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List
 
+import dotenv
+
+dotenv.load_dotenv()
 
 SYSTEM_PROMPT = (
     "你是一个专业中文写作助手。请严格按用户要求输出，"
@@ -38,15 +36,14 @@ class LLMClient:
         self.provider = provider
         self.model = model
 
-    def generate(self, prompt: str) -> str:
+    def generate(self, prompt: str, history: List[Dict[str, str]] | None = None) -> str:
         if self.provider == "mock":
             return self._mock_generate(prompt)
         if self.provider == "openai":
-            return self._openai_generate(prompt)
+            return self._openai_generate(prompt, history or [])
         raise ValueError(f"不支持 provider: {self.provider}")
 
     def _mock_generate(self, prompt: str) -> str:
-        # 保证在离线环境可运行。
         return (
             "【标题】高效写作三步法\n"
             "1. 明确读者与目标：先写一句‘这篇文章帮谁解决什么问题’。\n"
@@ -55,21 +52,25 @@ class LLMClient:
             f"参考你的需求：{prompt[:80]}"
         )
 
-    def _openai_generate(self, prompt: str) -> str:
-        api_key = os.getenv("OPENAI_API_KEY")
+    def _openai_generate(self, prompt: str, history: List[Dict[str, str]]) -> str:
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        base_url = os.getenv("ANTHROPIC_BASE_URL", "https://api.openai-proxy.org/v1").rstrip("/")
         if not api_key:
-            raise RuntimeError("缺少 OPENAI_API_KEY 环境变量")
+            raise RuntimeError(
+                "缺少 ANTHROPIC_API_KEY 环境变量。\n"
+                "PowerShell 请先执行：\n"
+                "$env:ANTHROPIC_API_KEY='你的key'\n"
+                "$env:ANTHROPIC_BASE_URL='https://api.openai-proxy.org/v1'"
+            )
 
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}, *history, {"role": "user", "content": prompt}]
         payload = {
             "model": self.model,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
+            "messages": messages,
             "temperature": 0.4,
         }
         req = urllib.request.Request(
-            "https://api.openai.com/v1/chat/completions",
+            f"{base_url}/chat/completions",
             data=json.dumps(payload).encode("utf-8"),
             headers={
                 "Content-Type": "application/json",
@@ -77,9 +78,25 @@ class LLMClient:
             },
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=90) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-        return body["choices"][0]["message"]["content"].strip()
+        try:
+            with urllib.request.urlopen(req, timeout=90) as resp:
+                body = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode("utf-8", errors="ignore") if hasattr(e, "read") else ""
+            raise RuntimeError(
+                f"模型服务请求失败：HTTP {e.code} {e.reason}。\n"
+                f"请求地址：{base_url}/chat/completions\n"
+                "排查建议：\n"
+                "1) 确认 ANTHROPIC_API_KEY 是否有效、未过期、未欠费；\n"
+                "2) 确认 ANTHROPIC_BASE_URL 是否正确；\n"
+                f"3) 确认模型名 `{self.model}` 在该平台可用。\n"
+                f"服务返回：{detail[:300]}"
+            ) from e
+
+        choices = body.get("choices") if isinstance(body, dict) else None
+        if not choices:
+            raise RuntimeError(f"响应中缺少 choices 字段，原始响应：{json.dumps(body, ensure_ascii=False)[:500]}")
+        return choices[0]["message"]["content"].strip()
 
 
 def load_cases(path: Path) -> List[EvalCase]:
@@ -135,7 +152,7 @@ def run_eval(client: LLMClient, case_path: Path, report_path: Path) -> Dict[str,
         "passed": sum(1 for r in results if r["passed"]),
         "pass_rate": round(pass_rate, 4),
         "avg_latency_ms": round(statistics.mean(latencies), 2) if latencies else 0,
-        "p95_latency_ms": round(sorted(latencies)[int(0.95 * (len(latencies)-1))], 2) if latencies else 0,
+        "p95_latency_ms": round(sorted(latencies)[int(0.95 * (len(latencies) - 1))], 2) if latencies else 0,
     }
 
     report = {"summary": summary, "results": results}
@@ -144,23 +161,34 @@ def run_eval(client: LLMClient, case_path: Path, report_path: Path) -> Dict[str,
     return report
 
 
-def interactive_chat(client: LLMClient) -> None:
-    print("写作助手已启动，输入 q 退出。")
+def interactive_chat(client: LLMClient, max_history_turns: int) -> None:
+    print("写作助手已启动，输入 q 退出，输入 /clear 清空上下文。")
+    history: List[Dict[str, str]] = []
     while True:
         user_input = input("\n你：").strip()
         if user_input.lower() in {"q", "quit", "exit"}:
             print("再见！")
             return
+        if user_input == "/clear":
+            history = []
+            print("上下文已清空。")
+            continue
         if not user_input:
             continue
-        answer = client.generate(user_input)
+        answer = client.generate(user_input, history=history)
         print(f"\n助手：\n{answer}")
+        history.append({"role": "user", "content": user_input})
+        history.append({"role": "assistant", "content": answer})
+        max_messages = max_history_turns * 2
+        if len(history) > max_messages:
+            history = history[-max_messages:]
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="写作助手测试项目（可运行）")
     parser.add_argument("--provider", default="mock", choices=["mock", "openai"], help="模型提供方")
     parser.add_argument("--model", default="gpt-4.1-mini", help="模型名称（provider=openai 时生效）")
+    parser.add_argument("--max-history-turns", type=int, default=6, help="chat 模式保留的历史轮数")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     eval_cmd = sub.add_parser("eval", help="运行批量评测")
@@ -173,7 +201,7 @@ def main() -> None:
     client = LLMClient(provider=args.provider, model=args.model)
 
     if args.cmd == "chat":
-        interactive_chat(client)
+        interactive_chat(client, max_history_turns=max(0, args.max_history_turns))
     else:
         report = run_eval(client, Path(args.cases), Path(args.report))
         print("评测完成：")
