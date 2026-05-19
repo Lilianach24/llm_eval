@@ -48,7 +48,7 @@ python3 app.py --provider openai --model Qwen/Qwen3-8B eval
 
 ### 4) 测试集格式（JSONL）
 
-默认文件：`tests/writing_cases.jsonl`
+默认文件：`tests/writing_cases.jsonl`（当前内置 36 条样本）
 
 每一行示例：
 
@@ -62,6 +62,8 @@ python3 app.py --provider openai --model Qwen/Qwen3-8B eval
 - `prompt`: 输入提示词
 - `must_include`: 必须包含的关键词
 - `max_chars`: 答案最大字符数
+- `tags`: 场景标签（如 `rewrite`, `safety`）
+- `difficulty`: 难度分层（L1-L4）
 
 ### 5) 输出指标
 
@@ -79,3 +81,26 @@ python3 app.py --provider openai --model Qwen/Qwen3-8B eval
 ### 7) .env 配置
 
 程序启动时会自动读取项目根目录下的 `.env` 文件。
+
+
+### 8) 第二阶段：自动化回归
+
+自动化回归 = 把“固定测试集评测”变成可重复执行的流水线（本地/CI都可跑），用于发现版本变更是否导致质量退化。
+
+#### 你可以直接运行
+
+```bash
+python3 run_regression.py --provider mock --model gpt-4.1-mini
+```
+
+执行后会产出：
+- `reports/latest_report.json`：基础评测结果
+- `reports/regression_summary.json`：按 `difficulty` 与 `tags` 的分层通过率
+
+#### 为什么这是第二阶段
+
+第一阶段你有了更完整测试集（36条分层样本）；
+第二阶段是让它“自动跑、可对比、可预警”，核心价值是：
+- 每次改 prompt / 模型 / 代码后，快速知道是否退化；
+- 定位退化发生在哪一层难度、哪一类场景；
+- 为后续接入 CI 和阈值门禁打基础。
