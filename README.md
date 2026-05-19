@@ -119,3 +119,17 @@ python gate_regression.py --provider mock --model gpt-4.1-mini
 - 检查最小通过率阈值（默认 `0.80`）；
 - 与基线对比退化幅度（默认最多下降 `0.03`）；
 - 导出失败用例到 `reports/failed_cases.json`，用于修复闭环。
+
+
+### 10) V2增强（覆盖你提出的4项要求）
+
+```bash
+python v2_eval.py --provider mock --models gpt-4.1-mini,Qwen/Qwen3-8B --workers 8
+```
+
+V2 新增能力：
+- 并发批量调用（`--workers`）；
+- 多模型交叉验证（`--models` 逗号分隔）；
+- 不一致性计算（`cross_model_disagreement`）；
+- 指标增强：`accuracy`、`compliance_rate`、`ece`、`avg_latency_ms`；
+- 输出 `reports/v2_eval_report.json` 作为多维测试报告。
