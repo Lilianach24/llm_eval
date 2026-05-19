@@ -1,0 +1,17 @@
+{
+  "info": {"name": "llm_eval_api", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"},
+  "item": [
+    {
+      "name": "chat_completions",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"},
+          {"key": "Authorization", "value": "Bearer {{api_key}}"}
+        ],
+        "url": "{{base_url}}/chat/completions",
+        "body": {"mode": "raw", "raw": "{\n  \"model\": \"{{model}}\",\n  \"messages\": [{\"role\":\"user\",\"content\":\"请写一句测试文案\"}]\n}"}
+      }
+    }
+  ]
+}
