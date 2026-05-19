@@ -7,7 +7,7 @@
 ### 1) 环境
 
 ```bash
-python3 --version
+python --version
 ```
 
 本项目默认只依赖 Python 标准库，并在仓库内置了 `dotenv.load_dotenv()` 所需的最小实现。
@@ -17,13 +17,13 @@ python3 --version
 #### 启动交互式写作助手
 
 ```bash
-python3 app.py chat --provider mock
+python app.py chat --provider mock
 ```
 
 #### 运行批量评测
 
 ```bash
-python3 app.py eval --provider mock
+python app.py eval --provider mock
 ```
 
 评测结果会输出到：
@@ -35,8 +35,8 @@ python3 app.py eval --provider mock
 ```bash
 export ANTHROPIC_API_KEY="你的Key"
 export ANTHROPIC_BASE_URL="https://api.openai-proxy.org/v1"
-python3 app.py --provider openai --model Qwen/Qwen3-8B --max-history-turns 6 chat
-python3 app.py --provider openai --model Qwen/Qwen3-8B eval
+python app.py --provider openai --model Qwen/Qwen3-8B --max-history-turns 6 chat
+python app.py --provider openai --model Qwen/Qwen3-8B eval
 ```
 
 > Windows PowerShell 不支持 `export`，请使用：
@@ -90,7 +90,7 @@ python3 app.py --provider openai --model Qwen/Qwen3-8B eval
 #### 你可以直接运行
 
 ```bash
-python3 run_regression.py --provider mock --model gpt-4.1-mini
+python run_regression.py --provider mock --model gpt-4.1-mini
 ```
 
 执行后会产出：
@@ -104,3 +104,18 @@ python3 run_regression.py --provider mock --model gpt-4.1-mini
 - 每次改 prompt / 模型 / 代码后，快速知道是否退化；
 - 定位退化发生在哪一层难度、哪一类场景；
 - 为后续接入 CI 和阈值门禁打基础。
+
+
+### 9) 第三阶段：回归门禁与失败闭环
+
+第三阶段目标：把“能跑回归”升级为“可拦截退化”。
+
+```bash
+python gate_regression.py --provider mock --model gpt-4.1-mini
+```
+
+该命令会：
+- 先执行回归（生成分层统计）；
+- 检查最小通过率阈值（默认 `0.80`）；
+- 与基线对比退化幅度（默认最多下降 `0.03`）；
+- 导出失败用例到 `reports/failed_cases.json`，用于修复闭环。
