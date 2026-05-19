@@ -133,3 +133,25 @@ V2 新增能力：
 - 不一致性计算（`cross_model_disagreement`）；
 - 指标增强：`accuracy`、`compliance_rate`、`ece`、`avg_latency_ms`；
 - 输出 `reports/v2_eval_report.json` 作为多维测试报告。
+
+
+### 11) V2.1 真实性核查模块
+
+```bash
+python fact_check.py --report reports/latest_report.json
+```
+
+输出：`reports/fact_check_report.json`，包含幻觉风险与合规信号统计。
+
+### 12) 压测资产化（Postman / JMeter）
+
+- Postman collection: `postman/llm_eval_collection.json`
+- JMeter test plan: `perf/jmeter_test_plan.jmx`
+
+### 13) 质量看板数据快照
+
+```bash
+python scripts/build_quality_dashboard.py
+```
+
+输出：`reports/dashboard_snapshot.json`，聚合基础评测、回归、V2、多模型不一致性、真实性核查指标。
