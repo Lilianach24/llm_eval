@@ -155,3 +155,14 @@ python scripts/build_quality_dashboard.py
 ```
 
 输出：`reports/dashboard_snapshot.json`，聚合基础评测、回归、V2、多模型不一致性、真实性核查指标。
+
+
+### 14) 面试材料
+
+已提供可直接复用的面试材料文档：
+- `docs/interview_materials.md`
+
+包含：
+- 一页架构图（评测→回归→门禁→报告→整改）
+- 一页指标定义表（accuracy/compliance/ECE/disagreement等）
+- 一页真实问题案例模板（拦截→定位→修复→回归）
